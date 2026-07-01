@@ -4,6 +4,39 @@ This file is the configuration for this wiki. It documents the conventions, page
 
 This file is **co-evolved with the user**. When the LLM notices a recurring pattern in your edits or feedback that isn't here, it will propose adding it. When something here stops fitting, prune it.
 
+## Repository Registry
+
+**Status:** standalone | shared
+
+| Repository | Path | Description | Added |
+|---|---|---|---|
+| (repo-name) | ~/src/(repo) | one-line description | YYYY-MM-DD |
+
+### Agent Instructions — Repository Registry
+
+- When ingesting from a repository **not listed above**, ask the user before
+  proceeding: "Should [repo-name] be added to this wiki's repository registry?"
+- If yes, add a row to the table with today's date and update this file.
+- If this wiki is **shared** across repos, update Status to `shared` and add
+  to each participating repo's `CLAUDE.md` (or `AGENTS.md`):
+
+  ```
+  LLM Wiki: <path-to-wiki-repo> (shared with: repo1, repo2, ...)
+  ```
+
+- Include `source_repo: <repo-name>` in every page's frontmatter for traceability.
+
+### Shared Wiki Pattern
+
+When a family of related repositories should share a common wiki:
+
+1. Create a dedicated wiki repo (e.g., `~/src/team-wiki`) with its own git history.
+2. Run `/wiki:init` in that repo, answer "shared", and list all participating repos.
+3. Add `LLM Wiki: ~/src/team-wiki (shared with: ...)` to each repo's memory file.
+4. Agents in any participating repo check the shared SCHEMA.md registry before ingesting.
+
+---
+
 ## Wiki location
 
 - Wiki root: `wiki/`
