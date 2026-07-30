@@ -11,3 +11,6 @@ __pycache__/
 launch-posts.md
 .leankg/
 .remember/
+
+# Linked git worktrees live here by convention. They are checkouts, not source.
+worktrees/
