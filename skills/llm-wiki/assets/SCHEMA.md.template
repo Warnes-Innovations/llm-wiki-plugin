@@ -81,6 +81,52 @@ Plus type-specific:
 - `source` pages: `authors`, `url` (if applicable), `raw`, `ingested`
 - Non-source pages: `sources` listing the source-summary pages drawn from
 
+## Confidentiality (optional — OFF by default)
+
+Most wikis do not need this. Enable it only if this wiki can hold pages derived from
+material that must not be published: legal working papers, unremediated security
+findings, incident notes, confidential business context.
+
+**The decision is per-wiki, not per-page.** Either every page carries `sensitivity:` or
+no page does. A field that is optional per page fails open — an unmarked page would read
+as safe, when in practice it is the page nobody classified. If you enable this, make it
+required and let the linter enforce it.
+
+### To enable
+
+1. Add `sensitivity` to the required-frontmatter list above.
+2. Run the linter with the field required, so an unmarked page is an error rather than an
+   assumption:
+
+   ```bash
+   python3 scripts/wiki_lint.py wiki/ \
+     --required-fm type,title,tags,created,updated,sensitivity
+   ```
+
+3. Delete this instruction block and keep the taxonomy below.
+
+### Taxonomy
+
+| Value | Meaning |
+|---|---|
+| `privileged` | Derived from attorney work product or counsel correspondence. Never leaves this repository, in any form, including a summary. |
+| `security-sensitive` | Describes an **unfixed** weakness, an exploit path, or an unremediated finding. |
+| `internal` | Confidential business context, with no privilege or live-vulnerability component. Still not for publication. |
+| `public-safe` | Genuinely publishable — e.g. an already-disclosed and already-fixed issue. |
+
+### Rules that make the field mean something
+
+1. **A derived page inherits its source's classification.** Summarising does not
+   declassify. A one-line summary of a counsel brief is still work product; an index
+   entry naming an unfixed vulnerability is still a roadmap, arguably a better one than
+   the full report because it is a ranked list of what is still broken.
+2. **A page drawing on multiple sources takes the MOST sensitive value**, never the
+   least. Union, not intersection.
+3. **Index lines, `log.md` entries and graph triples inherit too.** There is no
+   "it's only the index" tier — the index is the most concentrated form of the content.
+4. **`public-safe` must be justified in the page body.** It is the only value that
+   permits reuse elsewhere, so an unexplained one is an error, not permission.
+
 ## Optional graph metadata
 
 Pages may declare typed graph metadata under a top-level `graph:` key. This is the source of truth for the compiled knowledge graph under `wiki/graph/`. Markdown remains canonical; the graph is a regenerable index. Pages without `graph:` still appear as nodes (derived from `type`/`kind`) and still contribute `mentions` edges from body `[[wikilinks]]`.

@@ -42,6 +42,14 @@ CAPITALIZED_PHRASE_RE = re.compile(r"\b([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+
 SKIP_TOP_LEVEL_FILES = {"SCHEMA.md", "index.md", "log.md", "README.md"}
 SKIP_TOP_LEVEL_DIRS = {"indexes", "graph"}
 
+#: Taxonomy for the OPTIONAL `sensitivity` frontmatter field. Validated only when a wiki
+#: has opted in by listing `sensitivity` in --required-fm; wikis that never enable it are
+#: unaffected. See the "Confidentiality" section of SCHEMA.md.
+#:
+#: Ordered most- to least-restrictive, which is the order that matters when a page draws
+#: on several sources: it takes the MOST sensitive value among them, never the least.
+SENSITIVITY_VALUES = ("privileged", "security-sensitive", "internal", "public-safe")
+
 
 def parse_frontmatter(text: str) -> tuple[dict, str, bool]:
     """Returns (metadata, body, malformed). malformed=True if frontmatter was attempted but unparseable."""
@@ -124,6 +132,7 @@ def lint(pages: list[dict], soft_cap: int, hard_cap: int, required_fm: list[str]
         "oversized_soft": [],
         "missing_frontmatter": [],
         "malformed_frontmatter": [],
+        "invalid_sensitivity": [],
         "duplicate_slugs": [],
         "stale_pages": [],
         "read_errors": [],
@@ -182,6 +191,19 @@ def lint(pages: list[dict], soft_cap: int, hard_cap: int, required_fm: list[str]
             if missing:
                 findings["missing_frontmatter"].append({"path": p["rel_path"], "missing": missing})
 
+            # A `sensitivity` value is checked against the taxonomy, not merely for
+            # presence. Presence alone would let `privilged` — or any other typo — read
+            # as a classified page, which is worse than an unclassified one: the page
+            # LOOKS handled, so nobody looks at it again. Only validated when the wiki
+            # has opted in by making the field required (see SCHEMA.md).
+            if "sensitivity" in required_fm and "sensitivity" not in missing:
+                value = str(p["meta"].get("sensitivity", "")).strip().lower()
+                if value not in SENSITIVITY_VALUES:
+                    findings["invalid_sensitivity"].append({
+                        "path": p["rel_path"],
+                        "value": p["meta"].get("sensitivity"),
+                    })
+
         # Staleness: heuristic — page hasn't been updated in 90 days AND has been touched by recent ingests.
         # Approximate: if updated > 90d ago and the page is well-linked (a hub), flag it.
         updated = parse_date(p["meta"].get("updated"))
@@ -233,6 +255,7 @@ def lint(pages: list[dict], soft_cap: int, hard_cap: int, required_fm: list[str]
         "oversized_soft": len(findings["oversized_soft"]),
         "missing_frontmatter": len(findings["missing_frontmatter"]),
         "malformed_frontmatter": len(findings["malformed_frontmatter"]),
+        "invalid_sensitivity": len(findings["invalid_sensitivity"]),
         "duplicate_slugs": len(findings["duplicate_slugs"]),
         "stale_pages": len(findings["stale_pages"]),
         "read_errors": len(findings["read_errors"]),
@@ -257,6 +280,7 @@ def render_text(findings: dict) -> str:
         ("oversized_soft", "Oversize (over soft cap — consider splitting)", lambda f: f"  - {f['path']}  ({f['lines']} lines)"),
         ("missing_frontmatter", "Missing frontmatter fields", lambda f: f"  - {f['path']}  missing: {', '.join(f['missing'])}"),
         ("malformed_frontmatter", "Malformed frontmatter", lambda f: f"  - {f['path']}"),
+        ("invalid_sensitivity", f"Invalid `sensitivity` value (must be one of: {', '.join(SENSITIVITY_VALUES)})", lambda f: f"  - {f['path']}  got: {f['value']!r}"),
         ("duplicate_slugs", "Duplicate slugs", lambda f: f"  - {f['slug']}: {', '.join(f['paths'])}"),
         ("stale_pages", "Stale pages (well-linked but not updated in 90+ days)", lambda f: f"  - {f['path']}  (updated {f['updated']}, {f['age_days']}d ago, {f['inbound_count']} inbound)"),
         ("read_errors", "Read errors", lambda f: f"  - {f['path']}: {f['error']}"),
