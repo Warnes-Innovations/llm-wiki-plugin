@@ -56,6 +56,12 @@ SCHEMA_SECTION_MARKERS = [
         "anchor": "- Graph lint + extract: after every ingest that adds typed `graph.relationships`.",
         "label": "Graph lint + extract cadence (Lint cadence section)",
     },
+    {
+        "marker": "## Confidentiality",
+        "version": "0.4.0",
+        "anchor": "## Confidentiality (optional — OFF by default)",
+        "label": "Confidentiality / sensitivity field (optional, off by default)",
+    },
 ]
 
 
