@@ -1,0 +1,5 @@
+# Publication intent for this repository.
+# One of: public-bound (published or intended to be — scan every commit for
+# confidential material) or always-private (never published — skip the scan).
+# An absent file means public-bound.
+intent: public-bound
