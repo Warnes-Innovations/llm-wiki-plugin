@@ -41,6 +41,7 @@ Walk through the findings with the user and propose a fix for each:
 - Frontmatter issues: add the missing fields. If many pages have the same gap, consider whether the schema should be relaxed or the bootstrap template improved.
 - Stale pages: read the recently-touched related pages and the relevant raw sources, update the stale page surgically.
 - Duplicate slugs: one is canonical, the other should be merged in and deleted. Pick the better-named one as canonical and migrate inbound links with `grep` + `str_replace`.
+- Invalid `sensitivity` values (only when the wiki has opted into the optional confidentiality field — see SCHEMA.md): the reported value is not in the taxonomy, usually a typo. Do **not** guess the intended level and do not fall back to the least restrictive one; ask, or re-derive it from the page's sources, which is the same rule the field itself follows — a page takes the most sensitive value among its sources, never the least.
 
 Present each proposed fix as an edit, not a fait accompli. The user approves.
 

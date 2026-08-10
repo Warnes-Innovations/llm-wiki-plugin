@@ -72,6 +72,12 @@ SCHEMA_SECTION_MARKERS = [
         "anchor": "- Semantic backend: local FastEmbed + sqlite-vec",
         "label": "Local semantic retrieval (FastEmbed + sqlite-vec)",
     },
+    {
+        "marker": "## Confidentiality",
+        "version": "3.1.0",
+        "anchor": "## Confidentiality (optional — OFF by default)",
+        "label": "Confidentiality / sensitivity field (optional, off by default)",
+    },
 ]
 
 

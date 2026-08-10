@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Optional `sensitivity` frontmatter field, off by default.** Lets a wiki that can hold non-publishable material — legal working papers, unremediated security findings, incident notes, confidential business context — classify its pages, while imposing nothing on wikis that never need it. Taxonomy: `privileged | security-sensitive | internal | public-safe`, ordered most- to least-restrictive, because a page drawing on several sources takes the most sensitive value among them. Opt-in is **per-wiki, not per-page**: a per-page-optional field fails open, since an unmarked page reads as safe when it is in fact the page nobody classified. When a wiki opts in by making the field required, `wiki_lint.py` validates the **value** against the taxonomy rather than merely checking presence — `sensitivity: privilged` would otherwise satisfy a presence check and read as classified. Registered in `SCHEMA_SECTION_MARKERS` so `init_wiki.py --upgrade` surfaces the new section to existing wikis without touching their schema.
+
 ## [3.0.0] - 2026-07-20
 
 ### Changed
