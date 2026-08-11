@@ -1,0 +1,22 @@
+# codespell configuration for llm-wiki-plugin
+#
+# Custom dictionary: whole words codespell should NOT flag (comma-separated,
+# case-insensitive). Add confirmed false positives here rather than rewording
+# correct text.
+#
+#   unparseable — valid variant of "unparsable" (both are accepted spellings);
+#                 used in wiki_lint.py for frontmatter that fails to parse.
+#   re-use      — the hyphenated form is correct English, not a misspelling of
+#                 "reuse"; used in a wiki_graph_lint.py comment about reusing
+#                 extract's build_nodes/build_edges.
+#
+# NOT listed here, deliberately: `privilged` in wiki_lint.py. That is a
+# misspelling on purpose — it is the worked example in a comment explaining why
+# a `sensitivity` value must be validated against the taxonomy rather than
+# merely checked for presence. Suppressing it globally would also hide a real
+# misspelling of "privileged" anywhere else in the repo, so it carries a
+# targeted inline `codespell:ignore` at the one line that needs it instead.
+
+[codespell]
+ignore-words-list = unparseable,re-use
+skip = .git,__pycache__,*.png,*.pdf,*.svg,worktrees
