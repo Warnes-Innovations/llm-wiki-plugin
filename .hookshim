@@ -1,0 +1,2 @@
+# This repository's documented workflow permits direct commits to main.
+# A comment-only file explicitly disables hookshim's default main/master block.
