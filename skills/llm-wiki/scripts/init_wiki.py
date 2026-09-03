@@ -61,7 +61,7 @@ SCHEMA_SECTION_MARKERS = [
         "label": "Graph lint + extract cadence (Lint cadence section)",
     },
     {
-        "marker": "## Confidentiality",
+        "marker": "## Confidentiality (optional — OFF by default)",
         "version": "0.4.0",
         "anchor": "## Confidentiality (optional — OFF by default)",
         "label": "Confidentiality / sensitivity field (optional, off by default)",
