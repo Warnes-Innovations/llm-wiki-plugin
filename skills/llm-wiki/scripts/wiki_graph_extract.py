@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#   "pyyaml==6.0.3",
+# ]
+# ///
 """
 wiki_graph_extract.py — Compile the markdown wiki into a queryable graph.
 
@@ -7,12 +13,10 @@ and edges (typed semantic edges from `graph.relationships`, plus implicit
 `mentions`, `sourced_from`, `summarizes_raw` edges), and emits artifacts under
 `<wiki>/graph/` that can be deleted and rebuilt at any time.
 
-Requires PyYAML (`pip install pyyaml`) — the new graph layer uses real YAML
-parsing for its nested frontmatter, unlike the stdlib-only lint/search/stats
-scripts.
+Carries a pinned PyYAML dependency; run with `uv run --script`.
 
 Usage:
-    python wiki_graph_extract.py <wiki-dir> [options]
+    uv run --script wiki_graph_extract.py <wiki-dir> [options]
 
 Options:
     --out <dir>                  Output directory (default: <wiki-dir>/graph)
@@ -22,8 +26,8 @@ Options:
                                  (default: <wiki-dir>/graph/ontology.yaml)
 
 Examples:
-    python wiki_graph_extract.py wiki/
-    python wiki_graph_extract.py wiki/ --out wiki/graph --formats jsonl,sqlite
+    uv run --script wiki_graph_extract.py wiki/
+    uv run --script wiki_graph_extract.py wiki/ --out wiki/graph --formats jsonl,sqlite
 """
 
 import argparse
@@ -40,8 +44,8 @@ try:
     import yaml
 except ImportError:
     print(
-        "wiki_graph_extract.py requires PyYAML.\n"
-        "Install with:  pip install pyyaml",
+        "wiki_graph_extract.py requires PyYAML. "
+        "Run it with `uv run --script wiki_graph_extract.py ...`.",
         file=sys.stderr,
     )
     sys.exit(2)
@@ -50,8 +54,37 @@ except ImportError:
 WIKILINK_RE = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
+
+def clean_link_target(link: str) -> str:
+    """Strip a wikilink down to its path, dropping alias, anchor, and .md."""
+    target = link.split("|", 1)[0]      # drop a display alias, if any
+    target = target.split("#", 1)[0]    # drop a heading anchor
+    target = target.replace("\\", "/").strip().strip("/")
+    if target.lower().endswith(".md"):
+        target = target[:-3]
+    return target.strip()
+
+
+def resolve_link_slug(link: str, by_path: dict, by_slug) -> "str | None":
+    """Resolve a wikilink to the page slug it names, or None if unresolvable.
+
+    Node ids are keyed on the filename stem, so comparing raw link text drops
+    every path-qualified link ([[entities/kalman-filter]]) and its mentions edge
+    is simply never emitted. A directory prefix is treated as a CONSTRAINT: a
+    qualified link resolves only if that exact path exists, so [[raw/foo]]
+    cannot silently bind to sources/foo.md and fabricate an edge between two
+    different documents that happen to share a stem.
+    """
+    target = clean_link_target(link)
+    if not target:
+        return None
+    if "/" in target:
+        return by_path.get(target)
+    return target if target in by_slug else None
+
+
 SKIP_TOP_LEVEL_FILES = {"SCHEMA.md", "index.md", "log.md", "README.md"}
-SKIP_TOP_LEVEL_DIRS = {"indexes", "graph"}
+SKIP_TOP_LEVEL_DIRS = {"indexes", "graph", "raw"}
 
 DEFAULT_FORMATS = ["jsonl", "sqlite", "graphml"]
 
@@ -219,6 +252,16 @@ def build_edges(pages: list[dict], slug_to_id: dict[str, str]) -> list[dict]:
     edges: list[dict] = []
     seen_ids: set[str] = set()
 
+    # Index for resolving path-qualified wikilinks: case-sensitive
+    # wiki-relative path without the .md suffix -> slug.
+    path_to_slug: dict[str, str] = {}
+    for p in pages:
+        rel = p["rel_path"].replace("\\", "/")
+        if rel.lower().endswith(".md"):
+            rel = rel[:-3]
+        path_to_slug[rel] = p["slug"]
+    known_slugs = set(slug_to_id.keys())
+
     def push(edge: dict) -> None:
         if edge["id"] in seen_ids:
             return
@@ -262,7 +305,7 @@ def build_edges(pages: list[dict], slug_to_id: dict[str, str]) -> list[dict]:
         # 2. Mentions edges from body wikilinks.
         seen_targets: set[str] = set()
         for link in p["links"]:
-            target_slug = link.split("#")[0].strip()
+            target_slug = resolve_link_slug(link, path_to_slug, known_slugs)
             if not target_slug or target_slug == slug:
                 continue
             target_id = slug_to_id.get(target_slug)

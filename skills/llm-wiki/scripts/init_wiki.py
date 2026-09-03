@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """
-init_wiki.py — Bootstrap or upgrade an LLM Wiki structure in a project.
+init_wiki.py — Bootstrap or upgrade an LLM Wiki at a chosen filesystem location.
 
 Plain init creates the directory layout and drops in templates for SCHEMA.md,
 index.md, log.md, the page template, and the optional graph layer
 (graph/ontology.yaml, graph/README.md, graph/.gitignore). It is idempotent:
 re-running won't clobber existing files.
+Both modes then install and verify the pinned local runtime, model cache,
+parse cache, and vectors for every current wiki section through `uv`.
 
 `--upgrade` mode is for wikis bootstrapped under an older plugin version. It
 does the same idempotent file creation, then inspects the existing SCHEMA.md
@@ -14,7 +16,7 @@ what to merge by hand. It never overwrites SCHEMA.md — the schema is
 co-evolved with the user.
 
 Usage:
-    python init_wiki.py <project-root> [--wiki-dir wiki] [--raw-dir raw] [--upgrade]
+    python init_wiki.py <base-dir> [--wiki-dir wiki] [--raw-dir raw] [--upgrade]
 
 Examples:
     python init_wiki.py .
@@ -23,6 +25,8 @@ Examples:
 """
 
 import argparse
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from datetime import date
@@ -62,6 +66,18 @@ SCHEMA_SECTION_MARKERS = [
         "anchor": "## Confidentiality (optional — OFF by default)",
         "label": "Confidentiality / sensitivity field (optional, off by default)",
     },
+    {
+        "marker": "## Retrieval",
+        "version": "2.0.0",
+        "anchor": "## Retrieval",
+        "label": "Retrieval (section search and cache)",
+    },
+    {
+        "marker": "- Semantic backend: local FastEmbed + sqlite-vec",
+        "version": "3.0.0",
+        "anchor": "- Semantic backend: local FastEmbed + sqlite-vec",
+        "label": "Local semantic retrieval (FastEmbed + sqlite-vec)",
+    },
 ]
 
 
@@ -83,7 +99,13 @@ def detect_schema_gaps(schema_path: Path) -> list[dict]:
     if not schema_path.exists():
         return []
     text = schema_path.read_text(encoding="utf-8")
-    return [m for m in SCHEMA_SECTION_MARKERS if m["marker"] not in text]
+
+    def marker_present(marker: str) -> bool:
+        if marker.startswith("## "):
+            return any(line.strip() == marker for line in text.splitlines())
+        return marker in text
+
+    return [entry for entry in SCHEMA_SECTION_MARKERS if not marker_present(entry["marker"])]
 
 
 def print_schema_upgrade_guidance(schema_path: Path, gaps: list[dict]) -> None:
@@ -93,10 +115,9 @@ def print_schema_upgrade_guidance(schema_path: Path, gaps: list[dict]) -> None:
     print(f"Upgrade required: {schema_path}")
     print("=" * 64)
     print(
-        "Your SCHEMA.md predates one or more sections introduced by newer\n"
-        "plugin versions. The graph layer itself is opt-in, but to make Claude\n"
-        "aware of it, merge the sections below by hand. SCHEMA.md is co-evolved\n"
-        "with you — this script never overwrites it."
+        "Your SCHEMA.md predates one or more sections or policy markers\n"
+        "introduced by newer plugin versions. Merge the items below by hand.\n"
+        "SCHEMA.md is co-evolved with you — this script never overwrites it."
     )
     print()
     print("Missing sections:")
@@ -111,10 +132,37 @@ def print_schema_upgrade_guidance(schema_path: Path, gaps: list[dict]) -> None:
     )
 
 
+def install_runtime(wiki: Path) -> None:
+    """Install pinned dependencies, cache the model, and synchronize the wiki index."""
+    uv = shutil.which("uv")
+    if not uv:
+        print(
+            "Error: uv is required to install the pinned LLM Wiki runtime. "
+            "Install it from https://docs.astral.sh/uv/getting-started/installation/ "
+            "and rerun this command.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+    setup_script = Path(__file__).resolve().with_name("setup_wiki.py")
+    print()
+    print("Installing and verifying the local retrieval runtime...", flush=True)
+    try:
+        subprocess.run(
+            [uv, "run", "--script", str(setup_script), "--wiki", str(wiki), "--cache"],
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        print(
+            f"Error: local retrieval setup failed with exit code {exc.returncode}.",
+            file=sys.stderr,
+        )
+        raise SystemExit(exc.returncode) from exc
+
+
 def init_wiki(project_root: Path, wiki_dir: str, raw_dir: str, upgrade: bool = False) -> None:
     project_root = project_root.resolve()
     if not project_root.exists():
-        print(f"Error: project root does not exist: {project_root}", file=sys.stderr)
+        print(f"Error: base directory does not exist: {project_root}", file=sys.stderr)
         sys.exit(1)
 
     wiki = project_root / wiki_dir
@@ -155,6 +203,7 @@ def init_wiki(project_root: Path, wiki_dir: str, raw_dir: str, upgrade: bool = F
         ("ontology.yaml.template", wiki / "graph" / "ontology.yaml"),
         ("graph_README.md.template", wiki / "graph" / "README.md"),
         ("graph_gitignore.template", wiki / "graph" / ".gitignore"),
+        ("wiki-cache_gitignore.template", wiki / ".wiki-cache" / ".gitignore"),
     ]
     for src_name, dst in template_map:
         src = TEMPLATES / src_name
@@ -176,6 +225,8 @@ def init_wiki(project_root: Path, wiki_dir: str, raw_dir: str, upgrade: bool = F
         for path in skipped:
             print(f"  = {path}")
 
+    install_runtime(wiki)
+
     if upgrade:
         gaps = detect_schema_gaps(wiki / "SCHEMA.md")
         if gaps:
@@ -195,7 +246,7 @@ def init_wiki(project_root: Path, wiki_dir: str, raw_dir: str, upgrade: bool = F
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("project_root", type=Path, help="Project root directory.")
+    parser.add_argument("project_root", type=Path, metavar="BASE_DIR", help="Base directory containing the wiki and raw-source paths (for example a project root or home directory).")
     parser.add_argument("--wiki-dir", default="wiki", help="Name of the wiki subdirectory (default: wiki).")
     parser.add_argument("--raw-dir", default="raw", help="Name of the raw sources subdirectory (default: raw).")
     parser.add_argument("--upgrade", action="store_true",

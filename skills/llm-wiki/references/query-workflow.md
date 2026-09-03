@@ -19,10 +19,10 @@ From the index, build a short list of pages that look relevant to the query. Be 
 If the index doesn't surface good candidates (the query uses fuzzy or domain-specific language that doesn't match the index summaries), fall back to the search script:
 
 ```bash
-python scripts/wiki_search.py "your query terms" --top 10
+uv run --script scripts/wiki_search.py "your query terms" --top 10 --cache --json
 ```
 
-This returns the top-N pages by BM25 score, with optional filters on frontmatter (`--type concept`, `--tag llms`, `--since 2026-01-01`). Use the search script *as a fallback*, not as the default — index-first is cheaper and produces more interpretable results when it works.
+This returns section-level hybrid results by default: local FastEmbed semantic ranking and BM25 are fused with RRF, and each JSON row carries its `heading_path`, snippet, and retrieval provenance. The first semantic run downloads the pinned model; section vectors live in `wiki/.wiki-cache/embeddings.sqlite` and only changed sections are re-embedded. No wiki or query text leaves the machine. For dependency-free lexical BM25, run `python scripts/wiki_search.py "your query terms" --no-embed`; use optional frontmatter filters (`--type concept`, `--tag llms`, `--since 2026-01-01`) or pass `--granularity page` for whole-page lexical ranking.
 
 ## Step 2b: Graph-assisted lookup (only if `wiki/graph/graph.sqlite` exists)
 

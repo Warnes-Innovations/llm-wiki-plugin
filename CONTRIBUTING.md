@@ -103,10 +103,11 @@ For feature requests, please describe the underlying use case as well as the pro
 
 ### Where the version lives
 
-The plugin's version is declared in three JSON fields and one CHANGELOG heading. **Bump them together** — `claude plugin validate` will reject mismatches between the plugin manifest and the marketplace entry.
+The main release version is declared in four JSON fields and one CHANGELOG heading. **Bump them together**. `claude plugin validate` rejects mismatches between the plugin manifest and marketplace entry, while `package.json` keeps the documentation package aligned with the plugin and skill release.
 
 | Location | Field | Notes |
 |----------|-------|-------|
+| `package.json` | `version` | Repository documentation package; keep aligned with the plugin and skill release. |
 | `.claude-plugin/plugin.json` | `version` | Authoritative — Claude Code resolves the installed version from here first. |
 | `.claude-plugin/marketplace.json` | `metadata.version` | Top-level marketplace version. |
 | `.claude-plugin/marketplace.json` | `plugins[0].version` | Per-plugin entry; must match `plugin.json`. |
@@ -128,6 +129,7 @@ If a feature can be made backward-compatible (e.g. a new frontmatter field with 
 
 1. **Move `[Unreleased]` entries** in `CHANGELOG.md` under a new `## [X.Y.Z] — YYYY-MM-DD` heading. Add the corresponding `[X.Y.Z]: https://github.com/praneybehl/llm-wiki-plugin/releases/tag/vX.Y.Z` line at the bottom and update `[Unreleased]: …/compare/vX.Y.Z...HEAD`.
 2. **Bump `version` to `X.Y.Z`** in:
+   - `package.json`
    - `.claude-plugin/plugin.json`
    - `.claude-plugin/marketplace.json` (both `metadata.version` and `plugins[0].version`)
 3. **If the release adds files or schema sections** users on older wikis would otherwise miss, extend `scripts/init_wiki.py`:
@@ -165,7 +167,7 @@ If a feature can be made backward-compatible (e.g. a new frontmatter field with 
 
 - **Claude Code:** `/plugin marketplace update` followed by `/plugin install llm-wiki@llm-wiki`. Claude Code compares the resolved `version` against the cached one and refreshes when they differ.
 - **Other agents installed via `npx skills add`:** `npx skills update llm-wiki`, or re-run the original `npx skills add praneybehl/llm-wiki-plugin -a <agent>` command.
-- **Existing wikis bootstrapped under an older plugin version:** users run `/wiki:upgrade` (or `python skills/llm-wiki/scripts/init_wiki.py . --upgrade` from the CLI). The upgrade flow is idempotent for files and walked-through for SCHEMA.md merges.
+- **Existing wikis bootstrapped under an older plugin version:** users run `/wiki:upgrade` (or `python /path/to/llm-wiki-plugin/skills/llm-wiki/scripts/init_wiki.py /absolute/path/to/project --upgrade` from the CLI). The script path and target project must be separate; the upgrade flow is idempotent for files and walked-through for SCHEMA.md merges.
 
 ### What does NOT need to change on every release
 

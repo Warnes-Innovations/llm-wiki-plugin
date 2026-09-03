@@ -31,18 +31,19 @@ If a single shard later exceeds 300 lines (most likely `entities.md` or `concept
 
 ## Threshold 3: ~300 pages
 
-Time to introduce the **search script as a routine fallback**. Index navigation still works for direct lookups ("the page on diffusion models"), but fuzzy queries ("which papers discuss training stability") benefit from BM25 ranking.
+Time to use the **search script as a routine fallback**. Index navigation still works for direct lookups, while fuzzy queries benefit from default local semantic + BM25 ranking.
 
 `scripts/wiki_search.py` provides:
 
-- `python scripts/wiki_search.py "query terms"` — top-N pages by BM25 score.
+- `uv run --script scripts/wiki_search.py "query terms"` — section-level local hybrid results.
+- `python scripts/wiki_search.py "query terms" --no-embed` — dependency-free lexical BM25 (bypasses PEP 723 dependency resolution).
 - `--type concept` — filter by frontmatter type.
 - `--tag <tag>` — filter by tag.
 - `--since 2026-01-01` — filter by `updated` date.
 - `--backlinks <slug>` — find pages that link to a given page.
 - `--top-linked N` — find the N most-linked-to pages (hubs).
 
-Update the schema to declare the search script as a sanctioned fallback, so that future LLM sessions know to reach for it rather than degenerating into recursive grep.
+The model cache is shared under `~/.cache/llm-wiki/fastembed/`; per-wiki vectors stay in `.wiki-cache/embeddings.sqlite`. Future sessions should reach for this bounded retrieval path instead of recursive grep.
 
 ## Threshold 4: ~500 pages
 
@@ -50,7 +51,7 @@ At this scale, two things start to matter:
 
 **Structural lint cadence becomes weekly or per-N-ingests.** Manual oversight stops scaling. Rely on `wiki_lint.py` to surface structural drift and triage with the user.
 
-**The search script may want a real index.** The default `wiki_search.py` rebuilds its BM25 index on every run, which is fine up to a few thousand pages. Beyond that, persist the index to disk (the script supports `--cache .wiki-search-cache.json`).
+**The search script may want a persistent parse cache.** The default `wiki_search.py` rebuilds its BM25 index on every run, which is fine up to a few thousand pages. Beyond that, pass `--cache` to persist an incremental parse cache to disk (default `wiki/.wiki-cache/search-index.json`). It's keyed by each file's content hash, so only changed pages are reparsed and results are guaranteed identical to a cold, cacheless run.
 
 Also consider whether the wiki has organically split into distinct topic clusters that don't really cross-reference each other. If so, a single wiki may be the wrong shape — splitting into per-topic wikis (each with its own `SCHEMA.md`, `index.md`, etc.) may be cleaner. The user should make this call.
 
